@@ -79,5 +79,22 @@ void setup() {
 }
 
 void loop() {
-
+  //regarde si on peut Avancer
+  if (parcours[currentTile[0]][currentTile[1]][0] == 0) {
+    Serial.print("Avance");
+  //sinon vérifie à droite
+  } else if (parcours[currentTile[0]][currentTile[1]][1] == 0)
+  {
+    Serial.print("Tourne droite 90");
+    Serial.print("Avance");
+  //sinon vérifie à gauche
+  } else if (parcours[currentTile[0]][currentTile[1]][3] == 0)
+  {
+    Serial.print("Tourne gauche 90");
+    Serial.print("Avance");
+  //sinon reviens sur ses pas
+  } else {
+    Serial.print("Reviens");
+  }
+  
 }
