@@ -1,4 +1,5 @@
 /*
+ROBOT 1B
 Projet: Le nom du script
 Equipe: Votre numero d'equipe
 Auteurs: Les membres auteurs du script
