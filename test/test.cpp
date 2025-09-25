@@ -26,6 +26,9 @@ int etat = 0; // = 0 arrêt 1 = avance 2 = recule 3 = TourneDroit 4 = TourneGauc
 int etatPast = 0;
 float vitesse = 0.30;
 
+int pulseNbMain = 0;
+int pulseNbSub = 0;
+
 /*
 Vos propres fonctions sont creees ici
 */
@@ -51,7 +54,7 @@ void avance(){
 };
 
 void recule(){
-  MOTOR_SetSpeed(RIGHT, -0.5*vitesse);
+  MOTOR_SetSpeed(RIGHT, -vitesse);
   MOTOR_SetSpeed(LEFT, -vitesse);
 };
 
@@ -65,6 +68,21 @@ void tourneGauche(){
   MOTOR_SetSpeed(LEFT, 0.5*vitesse);
 };
 
+void calibrate(){
+    arret();
+    delay(50);
+    pulseNbMain = ENCODER_Read(RIGHT);
+    pulseNbSub = ENCODER_Read(LEFT);
+    avance();
+    delay(1000);
+    pulseNbMain = ENCODER_Read(RIGHT);
+    pulseNbSub =  ENCODER_Read(LEFT);
+
+    Serial.print("Pulse Main : ");
+    Serial.println(pulseNbMain);
+    Serial.print("Pulse Sub : ");
+    Serial.println(pulseNbSub);
+}
 /*
 Fonctions d'initialisation (setup)
  -> Se fait appeler au debut du programme
@@ -87,53 +105,6 @@ Fonctions de boucle infini
  -> Se fait appeler perpetuellement suite au "setup"
 */
 void loop() {
-  etatPast = etat;
-  
-  vert = digitalRead(vertpin);
-  rouge = digitalRead(rougepin);
-  Serial.print(vert);
-  Serial.println(rouge);
 
-  if (vert && rouge){ // aucun obstacle => avance
-    etat = 1;
-  }
-  if (!vert && !rouge){  // obstacle devant => recule
-    etat = 2;
-  }
-  if (!vert && rouge){ // obstacle à gauche => tourne droit
-      etat = 3;
-    }
-  if (vert && !rouge){ // obstacle à droite => tourne gauche
-      etat = 4;
-  }
-
-
-  if (etatPast != etat){
-    arret();
-  }
-  else{
-    switch (etat)
-    {
-    case 0:
-      arret();
-      break;
-    case 1:
-      avance();
-      break;
-    case 2:
-      recule();
-      break;
-    case 3:
-      tourneDroit();
-      break;
-    case 4:
-      tourneGauche();
-      break;            
-    default:
-      avance();
-      etat = 1;
-    break;
-    }
-  }
-  delay(200);
+    calibrate();
 }
