@@ -26,6 +26,7 @@ bool rouge = false;
 int etat = 0; // = 0 arrêt 1 = avance 2 = recule 3 = TourneDroit 4 = TourneGauche
 int etatPast = 0;
 float vitesse = 0.30;
+bool firstTime = true;
 
 /*
 Vos propres fonctions sont creees ici
@@ -52,8 +53,8 @@ void avance(){
 };
 
 void recule(){
-  MOTOR_SetSpeed(RIGHT, -0.5*vitesse);
-  MOTOR_SetSpeed(LEFT, -vitesse);
+  MOTOR_SetSpeed(RIGHT, 0.5*vitesse);
+  MOTOR_SetSpeed(LEFT, -0.5*vitesse);
 };
 
 void tourneDroit(){
@@ -64,6 +65,28 @@ void tourneDroit(){
 void tourneGauche(){
   MOTOR_SetSpeed(RIGHT, -0.5*vitesse);
   MOTOR_SetSpeed(LEFT, 0.5*vitesse);
+};
+
+void avance50(){
+  ENCODER_Reset(RIGHT);
+  while (ENCODER_Read(RIGHT) < 6560){
+    avance();
+  }
+};
+
+void tourneGauche90(){
+  ENCODER_Reset(RIGHT);
+  while (ENCODER_Read(RIGHT) < 2000){
+    tourneDroit();
+  }
+
+};
+
+void tourneDroit90(){
+  ENCODER_Reset(LEFT);
+  while (ENCODER_Read(LEFT) < 2000){
+    tourneGauche();
+  }
 };
 
 /*
@@ -95,11 +118,44 @@ void loop() {
   Serial.print(vert);
   Serial.println(rouge);
 
+  
+  avance50();
+  arret();
+
+  Serial.print(rouge);
+
+
+  if (rouge and vert){
+    avance50();
+    arret();
+    delay(999999);
+  }
+
+  else if (!rouge and !vert){
+    tourneGauche90();
+    avance50();
+    arret();
+    delay(999999);
+  }
+  
+  
+
+  delay(200);
+
+  
+
+  
+
+  /* code */
+
+
+
+  /*
   if (vert && rouge){ // aucun obstacle => avance
     etat = 1;
   }
   if (!vert && !rouge){  // obstacle devant => recule
-    etat = 2;
+    etat = 0;
   }
   if (!vert && rouge){ // obstacle à gauche => tourne droit
       etat = 3;
@@ -107,7 +163,7 @@ void loop() {
   if (vert && !rouge){ // obstacle à droite => tourne gauche
       etat = 4;
   }
-
+  
 
   if (etatPast != etat){
     arret();
@@ -136,5 +192,7 @@ void loop() {
     break;
     }
   }
-  delay(200);
+
+  */
+  
 }
