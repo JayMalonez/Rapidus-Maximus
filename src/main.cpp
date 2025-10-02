@@ -1,139 +1,102 @@
-/*
-Projet: Le nom du script
-Equipe: Votre numero d'equipe
-Auteurs: Les membres auteurs du script
-Description: Breve description du script
-Date: Derniere date de modification
-*/
-
-/*
-Inclure les librairies de functions que vous voulez utiliser
-*/
 #include <LibRobus.h>
 
-/*
-Variables globales et defines
- -> defines...
- -> L'ensemble des fonctions y ont acces
+/* 
+matrice de 3 lignes par 10 colonnes contenant des tableaux de 4 représentant une case 
+[haut, droite, bas, gauche]
 */
+int parcours[10][3][4];
+//case dans laquelle se trouve le robot [ligne, colonne]
+int currentTile[2];
 
-bool bumperArr;
-int vertpin = 41;
-int rougepin = 39;
-bool vert = false;
-bool rouge = false;
-int etat = 0; // = 0 arrêt 1 = avance 2 = recule 3 = TourneDroit 4 = TourneGauche
-int etatPast = 0;
-float vitesse = 0.30;
-
-/*
-Vos propres fonctions sont creees ici
-*/
-
-void beep(int count){
-  for(int i=0;i<count;i++){
-    AX_BuzzerON();
-    delay(100);
-    AX_BuzzerOFF();
-    delay(100);  
+//initialise les bordures dans le parcours
+void initParcours() {
+  // tableau vide
+  for (int i = 0; i < 10; i++) {
+    for (int j = 0; j < 3; j++) {
+      parcours[i][j][0] = 0; // haut
+      parcours[i][j][1] = 0; // droite
+      parcours[i][j][2] = 0; // bas
+      parcours[i][j][3] = 0; // gauche
+    }
   }
-  delay(400);
+
+  //bordure du haut
+  parcours[0][0][0] = 1;
+  parcours[0][1][0] = 1;
+  parcours[0][2][0] = 1;
+
+  //bordure droite
+  for (int i = 0; i < 10; i++) {
+    parcours[i][2][1] = 1;
+  }
+  
+  //bordure du bas
+  parcours[9][0][3] = 1;
+  parcours[9][1][3] = 1;
+  parcours[9][2][3] = 1;
+
+  //bordure gauche
+  for (int i = 0; i < 10; i++) {
+    parcours[i][0][3] = 1;
+  }
+
+  //bordure du milieu lignes : 0,2,4,6,8
+  parcours[0][1][1] = 1;
+  parcours[0][1][3] = 1;
+  parcours[2][1][1] = 1;
+  parcours[2][1][3] = 1;
+  parcours[4][1][1] = 1;
+  parcours[4][1][3] = 1;
+  parcours[6][1][1] = 1;
+  parcours[6][1][3] = 1;
+  parcours[8][1][1] = 1;
+  parcours[8][1][3] = 1;
 }
 
-void arret(){
-  MOTOR_SetSpeed(RIGHT, 0);
-  MOTOR_SetSpeed(LEFT, 0);
-};
+void printParcours() {
+  for (int i = 0; i < 10; i++) {
+    Serial.print("Ligne "); Serial.println(i);
+    for (int j = 0; j < 3; j++) {
+      Serial.print("  Case("); Serial.print(i);
+      Serial.print(","); Serial.print(j);
+      Serial.print(") -> [");
 
-void avance(){
-  MOTOR_SetSpeed(RIGHT,vitesse);
-  MOTOR_SetSpeed(LEFT, vitesse);
-};
+      for (int d = 0; d < 4; d++) {
+        Serial.print(parcours[i][j][d]);
+        if (d < 3) Serial.print(",");
+      }
+      Serial.println("]"); // fin des directions
+    }
+  }
+}
 
-void recule(){
-  MOTOR_SetSpeed(RIGHT, -0.5*vitesse);
-  MOTOR_SetSpeed(LEFT, -vitesse);
-};
-
-void tourneDroit(){
-  MOTOR_SetSpeed(RIGHT, 0.5*vitesse);
-  MOTOR_SetSpeed(LEFT, -0.5*vitesse);
-};
-
-void tourneGauche(){
-  MOTOR_SetSpeed(RIGHT, -0.5*vitesse);
-  MOTOR_SetSpeed(LEFT, 0.5*vitesse);
-};
-
-/*
-Fonctions d'initialisation (setup)
- -> Se fait appeler au debut du programme
- -> Se fait appeler seulement un fois
- -> Generalement on y initilise les varibbles globales
-*/
-void setup(){
+void setup() {
   BoardInit();
-  
-  //initialisation
-  pinMode(vertpin, INPUT);
-  pinMode(rougepin, INPUT);
-  delay(100);
-  beep(3);
-  etat = 1;
+  initParcours();
+  //printParcours();
+
+  //case de départ
+  currentTile[0] = 9;
+  currentTile[1] = 1;
 }
 
-/*
-Fonctions de boucle infini
- -> Se fait appeler perpetuellement suite au "setup"
-*/
 void loop() {
-  etatPast = etat;
+  //regarde si on peut Avancer
+  if (parcours[currentTile[0]][currentTile[1]][0] == 0) {
+    Serial.print("Avance");
+  //sinon vérifie à droite
+  } else if (parcours[currentTile[0]][currentTile[1]][1] == 0)
+  {
+    Serial.print("Tourne droite 90");
+    Serial.print("Avance");
+  //sinon vérifie à gauche
+  } else if (parcours[currentTile[0]][currentTile[1]][3] == 0)
+  {
+    Serial.print("Tourne gauche 90");
+    Serial.print("Avance");
+  //sinon reviens sur ses pas
+  } else {
+    Serial.print("Reviens");
+  }
   
-  vert = digitalRead(vertpin);
-  rouge = digitalRead(rougepin);
-  Serial.print(vert);
-  Serial.println(rouge);
-
-  if (vert && rouge){ // aucun obstacle => avance
-    etat = 1;
-  }
-  if (!vert && !rouge){  // obstacle devant => recule
-    etat = 2;
-  }
-  if (!vert && rouge){ // obstacle à gauche => tourne droit
-      etat = 3;
-    }
-  if (vert && !rouge){ // obstacle à droite => tourne gauche
-      etat = 4;
-  }
-
-
-  if (etatPast != etat){
-    arret();
-  }
-  else{
-    switch (etat)
-    {
-    case 0:
-      arret();
-      break;
-    case 1:
-      avance();
-      break;
-    case 2:
-      recule();
-      break;
-    case 3:
-      tourneDroit();
-      break;
-    case 4:
-      tourneGauche();
-      break;            
-    default:
-      avance();
-      etat = 1;
-    break;
-    }
-  }
-  delay(200);
 }
