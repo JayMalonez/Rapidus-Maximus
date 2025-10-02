@@ -40,15 +40,17 @@ void initParcours() {
     parcours[i][0][3] = 1;
   }
 
-  //bordure du milieu lignes : 1,3,5,7
-  parcours[1][1][1] = 1;
-  parcours[3][1][1] = 1;
-  parcours[5][1][1] = 1;
-  parcours[7][1][1] = 1;
-  parcours[1][1][3] = 1;
-  parcours[3][1][3] = 1;
-  parcours[5][1][3] = 1;
-  parcours[7][1][3] = 1;
+  //bordure du milieu lignes : 0,2,4,6,8
+  parcours[0][1][1] = 1;
+  parcours[0][1][3] = 1;
+  parcours[2][1][1] = 1;
+  parcours[2][1][3] = 1;
+  parcours[4][1][1] = 1;
+  parcours[4][1][3] = 1;
+  parcours[6][1][1] = 1;
+  parcours[6][1][3] = 1;
+  parcours[8][1][1] = 1;
+  parcours[8][1][3] = 1;
 }
 
 void printParcours() {
