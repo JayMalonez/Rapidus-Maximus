@@ -22,7 +22,7 @@ void initParcours() {
 
   //bordure du haut
   parcours[0][0][0] = 1;
-  parcours[0][1][0] = 1;
+  parcours[0][1][0] = 0; //Arrivée
   parcours[0][2][0] = 1;
 
   //bordure droite
@@ -32,7 +32,7 @@ void initParcours() {
   
   //bordure du bas
   parcours[9][0][3] = 1;
-  parcours[9][1][3] = 1;
+  parcours[9][1][3] = 1; //Départ
   parcours[9][2][3] = 1;
 
   //bordure gauche
@@ -70,10 +70,131 @@ void printParcours() {
   }
 }
 
+#define FULL_TURN_PULSE 3200
+#define DISTANCE 1000
+
+bool bumperArr;
+int vertpin = 41;
+int rougepin = 39;
+bool vert = false;
+bool rouge = false;
+int etat = 0; // = 0 arrêt 1 = avance 2 = recule 3 = TourneDroit 4 = TourneGauche
+int etatPast = 0;
+float vitesse = 0.30;
+
+int pulseNbMain = 0;
+int pulseNbSub = 0;
+float ampliSub = 1;
+
+float slowAccelRight = 0;
+float slowAccelLeft = 0;
+
+void beep(int count){
+  for(int i=0;i<count;i++){
+    AX_BuzzerON();
+    delay(100);
+    AX_BuzzerOFF();
+    delay(100);  
+  }
+  delay(400);
+}
+
+void arret(){
+  MOTOR_SetSpeed(RIGHT, 0);
+  MOTOR_SetSpeed(LEFT, 0);
+};
+
+void avance(){
+  Serial.println("Avance");
+  MOTOR_SetSpeed(RIGHT,vitesse);
+  MOTOR_SetSpeed(LEFT, ampliSub*vitesse);
+};
+
+
+void avance50(){
+  ENCODER_Reset(RIGHT);
+  while (ENCODER_Read(RIGHT) < 6560){
+    avance();
+  }
+  delay(1000);
+};
+
+void avanceV2(int nbPulse){
+  ENCODER_ReadReset(RIGHT);
+  ENCODER_ReadReset(LEFT);
+  do {
+    slowAccelRight = ((float)(nbPulse/2 - abs(ENCODER_Read(RIGHT) - nbPulse/2)) / (float)(nbPulse)) + 0.1;
+    slowAccelLeft =  ((float)(nbPulse/2 - abs(ENCODER_Read(LEFT)  - nbPulse/2)) / (float)(nbPulse)) + 0.1;
+    MOTOR_SetSpeed(RIGHT, slowAccelRight);
+    MOTOR_SetSpeed(LEFT,  slowAccelLeft );
+    Serial.println(slowAccelRight);
+  }
+  while(abs(ENCODER_Read(RIGHT)) < nbPulse);
+}
+
+void recule(){
+  MOTOR_SetSpeed(RIGHT, -vitesse);
+  MOTOR_SetSpeed(LEFT, ampliSub*-vitesse);
+};
+
+
+void tourneDroit(){
+  Serial.println("Tourne droite 90");
+  MOTOR_SetSpeed(RIGHT, 0.5*vitesse);
+  MOTOR_SetSpeed(LEFT, -0.5*vitesse);
+  arret();
+};
+
+void tourneGauche(){
+  Serial.println("Tourne gauche 90");
+  MOTOR_SetSpeed(RIGHT, -0.5*vitesse);
+  MOTOR_SetSpeed(LEFT, 0.5*vitesse);
+  delay(100);
+  arret();
+};
+
+void tourneGauche90(){
+  ENCODER_Reset(RIGHT);
+  while (ENCODER_Read(RIGHT) < 2000){
+    tourneDroit();
+  }
+
+};
+
+void tourneDroit90(){
+  ENCODER_Reset(LEFT);
+  while (ENCODER_Read(LEFT) < 2000){
+    tourneGauche();
+  }
+};
+
+void calibrate(int nbOfMeasure){
+
+  ENCODER_ReadReset(RIGHT);
+  ENCODER_ReadReset(LEFT);
+  do {
+    avance();
+  }
+  while(ENCODER_Read(RIGHT) < FULL_TURN_PULSE*nbOfMeasure);
+
+  pulseNbSub = ENCODER_Read(LEFT);
+
+  ampliSub = ((float)FULL_TURN_PULSE * nbOfMeasure) / (float)pulseNbSub;
+  Serial.print("Ampli : ");
+  Serial.println(ampliSub);
+  arret();
+  delay(100);
+  beep(2);
+}
+
 void setup() {
   BoardInit();
   initParcours();
   //printParcours();
+
+  pinMode(vertpin, INPUT);
+  pinMode(rougepin, INPUT);
+  delay(100);
 
   //case de départ
   currentTile[0] = 9;
@@ -81,22 +202,54 @@ void setup() {
 }
 
 void loop() {
+  if (currentTile[0] == -1) {
+    Serial.println("Arrêt de l'algorithme");
+    Serial.print(currentTile[0]);
+    Serial.print(", ");
+    Serial.print(currentTile[1]);
+    arret();
+    return; 
+  }
+
   //regarde si on peut Avancer
-  if (parcours[currentTile[0]][currentTile[1]][0] == 0) {
-    Serial.print("Avance");
+  if (parcours[currentTile[0]][currentTile[1]][0] == 0 && digitalRead(vertpin) == 1 && digitalRead(rougepin) == 1) {
+    avance50();
+    currentTile[0]--;
+
+    Serial.print(currentTile[0]);
+    Serial.print(", ");
+    Serial.print(currentTile[1]);
   //sinon vérifie à droite
   } else if (parcours[currentTile[0]][currentTile[1]][1] == 0)
   {
-    Serial.print("Tourne droite 90");
-    Serial.print("Avance");
+    tourneDroit90();
+    if (digitalRead(vertpin) == 0 && digitalRead(rougepin) == 0)
+    {
+     tourneGauche90(); //90
+     tourneGauche90(); //90
+     avance50();
+     tourneDroit90(); //se replace dans la bonne direction
+     currentTile[1]--;
+    } else {
+      avance50();
+      currentTile[1]++;
+
+      Serial.print(currentTile[0]);
+      Serial.print(", ");
+      Serial.print(currentTile[1]);
+      tourneGauche();
+    }
   //sinon vérifie à gauche
   } else if (parcours[currentTile[0]][currentTile[1]][3] == 0)
   {
-    Serial.print("Tourne gauche 90");
-    Serial.print("Avance");
-  //sinon reviens sur ses pas
-  } else {
-    Serial.print("Reviens");
+    tourneGauche90();
+    avance50();
+    currentTile[1]--;
+
+    Serial.print(currentTile[0]);
+    Serial.print(", ");
+    Serial.print(currentTile[1]);
+    tourneDroit90();
   }
-  
+  delay(400);
 }
