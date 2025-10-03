@@ -108,7 +108,6 @@ void avance(){
   Serial.println("Avance");
   MOTOR_SetSpeed(RIGHT,vitesse);
   MOTOR_SetSpeed(LEFT, ampliSub*vitesse);
-  arret();
 };
 
 
@@ -138,20 +137,35 @@ void recule(){
   MOTOR_SetSpeed(LEFT, ampliSub*-vitesse);
 };
 
+
 void tourneDroit(){
   Serial.println("Tourne droite 90");
-  MOTOR_SetSpeed(RIGHT, -vitesse);
-  MOTOR_SetSpeed(LEFT, ampliSub*vitesse);
-  delay(1000);
+  MOTOR_SetSpeed(RIGHT, 0.5*vitesse);
+  MOTOR_SetSpeed(LEFT, -0.5*vitesse);
   arret();
 };
 
 void tourneGauche(){
   Serial.println("Tourne gauche 90");
-  MOTOR_SetSpeed(RIGHT, vitesse);
-  MOTOR_SetSpeed(LEFT, ampliSub*-vitesse);
-  delay(1000);
+  MOTOR_SetSpeed(RIGHT, -0.5*vitesse);
+  MOTOR_SetSpeed(LEFT, 0.5*vitesse);
+  delay(100);
   arret();
+};
+
+void tourneGauche90(){
+  ENCODER_Reset(RIGHT);
+  while (ENCODER_Read(RIGHT) < 2000){
+    tourneDroit();
+  }
+
+};
+
+void tourneDroit90(){
+  ENCODER_Reset(LEFT);
+  while (ENCODER_Read(LEFT) < 2000){
+    tourneGauche();
+  }
 };
 
 void calibrate(int nbOfMeasure){
@@ -208,13 +222,13 @@ void loop() {
   //sinon vérifie à droite
   } else if (parcours[currentTile[0]][currentTile[1]][1] == 0)
   {
-    tourneDroit();
+    tourneDroit90();
     if (digitalRead(vertpin) == 0 && digitalRead(rougepin) == 0)
     {
-     tourneGauche(); //90
-     tourneGauche(); //90
+     tourneGauche90(); //90
+     tourneGauche90(); //90
      avance50();
-     tourneDroit(); //se replace dans la bonne direction
+     tourneDroit90(); //se replace dans la bonne direction
      currentTile[1]--;
     } else {
       avance50();
@@ -228,14 +242,14 @@ void loop() {
   //sinon vérifie à gauche
   } else if (parcours[currentTile[0]][currentTile[1]][3] == 0)
   {
-    tourneGauche();
+    tourneGauche90();
     avance50();
     currentTile[1]--;
 
     Serial.print(currentTile[0]);
     Serial.print(", ");
     Serial.print(currentTile[1]);
-    tourneDroit();
+    tourneDroit90();
   }
   delay(400);
 }
