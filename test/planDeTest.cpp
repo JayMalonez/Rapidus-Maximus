@@ -51,19 +51,20 @@ void arret(){
 };
 
 void avance(){
-  MOTOR_SetSpeed(RIGHT,vitesse);
+  MOTOR_SetSpeed(RIGHT, vitesse);
   MOTOR_SetSpeed(LEFT, ampliSub*vitesse);
 };
 
 void avanceV2(int nbPulse){
+  Serial.print(ampliSub*vitesse);
   ENCODER_ReadReset(RIGHT);
   ENCODER_ReadReset(LEFT);
   do {
     slowAccelRight = ((float)(nbPulse/2 - abs(ENCODER_Read(RIGHT) - nbPulse/2)) / (float)(nbPulse)) + 0.1;
-    slowAccelLeft =  ((float)(nbPulse/2 - abs(ENCODER_Read(LEFT)  - nbPulse/2)) / (float)(nbPulse)) + 0.1;
+    slowAccelLeft =  (((float)(nbPulse/2 - abs(ENCODER_Read(LEFT)  - nbPulse/2)) / (float)(nbPulse)) + 0.1) * 1.03;
     MOTOR_SetSpeed(RIGHT, slowAccelRight);
     MOTOR_SetSpeed(LEFT,  slowAccelLeft );
-    Serial.println(slowAccelRight);
+    //Serial.println(slowAccelRight);
   }
   while(abs(ENCODER_Read(RIGHT)) < nbPulse);
 }
@@ -83,23 +84,23 @@ void tourneGauche(){
   MOTOR_SetSpeed(LEFT, ampliSub*vitesse);
 };
 
-void calibrate(int nbOfMeasure){
+void calibrate(int timeToTestInSec){
 
   ENCODER_ReadReset(RIGHT);
   ENCODER_ReadReset(LEFT);
-  do {
-    avance();
-  }
-  while(ENCODER_Read(RIGHT) < FULL_TURN_PULSE*nbOfMeasure);
 
-  pulseNbSub = ENCODER_Read(LEFT);
+  MOTOR_SetSpeed(RIGHT, 0.3);
+  MOTOR_SetSpeed(LEFT, 0.3);
+  delay(timeToTestInSec * 1000);
 
-  ampliSub = ((float)FULL_TURN_PULSE * nbOfMeasure) / (float)pulseNbSub;
-  Serial.print("Ampli : ");
-  Serial.println(ampliSub);
+  Serial.print("Right : "); Serial.println(ENCODER_Read(RIGHT));
+  Serial.print("Left : ");  Serial.println(ENCODER_Read(LEFT));
+  ampliSub = (float)ENCODER_Read(RIGHT) / (float)ENCODER_Read(LEFT);
+  Serial.print("Ampli (RIGHT/LEFT): ");
+  Serial.println(String(ampliSub, 6));
   arret();
   delay(100);
-  beep(2);
+
 }
 
 void setup(){
@@ -109,61 +110,43 @@ void setup(){
   pinMode(vertpin, INPUT);
   pinMode(rougepin, INPUT);
   delay(100);
-  //calibrate(2);
+  //calibrate(3);
+  beep(2);
 }
 
 void loop() {
-  if(AX_IsBumper(1))
-  {
-    ENCODER_ReadReset(RIGHT);
-    ENCODER_ReadReset(LEFT);
-    do {
-      tourneDroit();
-    }
-    while(abs(ENCODER_Read(RIGHT)) < FULL_TURN_PULSE);
-    Serial.println(ENCODER_Read(LEFT));
-    
-    arret();
-    delay(500);
 
-    ENCODER_ReadReset(RIGHT);
-    ENCODER_ReadReset(LEFT);
-    do {
-      tourneGauche();
-    }
-    while(abs(ENCODER_Read(RIGHT)) < FULL_TURN_PULSE);
-    Serial.println(ENCODER_Read(LEFT));
-    arret();
-    delay(500);
-  }
-  else if(AX_IsBumper(3)){
-    avanceV2(10000);
-    /*ENCODER_ReadReset(RIGHT);
-    ENCODER_ReadReset(LEFT);
-    do {
-
-      
-      slowAccelRight = ((float)(FULL_TURN_PULSE/2 - abs(ENCODER_Read(RIGHT) - FULL_TURN_PULSE/2)) / (float)(FULL_TURN_PULSE)) + 0.1;
-      slowAccelLeft =  ((float)(FULL_TURN_PULSE/2 - abs(ENCODER_Read(LEFT)  - FULL_TURN_PULSE/2)) / (float)(FULL_TURN_PULSE)) + 0.1;
-      MOTOR_SetSpeed(RIGHT, slowAccelRight);
-      MOTOR_SetSpeed(LEFT,  slowAccelLeft );
-      Serial.println(slowAccelRight);
-    }
-    while(abs(ENCODER_Read(RIGHT)) < FULL_TURN_PULSE);*/
-  }
-  else
-  {
-    arret();
+  if(AX_IsBumper(3)){
     delay(100);
-  }
-/*
-  Serial.println(ENCODER_Read(RIGHT));
-  Serial.println(ENCODER_Read(LEFT));
-  if(AX_IsBumper(1))
+    ENCODER_ReadReset(RIGHT);
+    ENCODER_ReadReset(LEFT);
+    avance();
+    do
     {
+      delay(500);
+      Serial.print("Right : "); Serial.println(ENCODER_Read(RIGHT));
+      Serial.print("Left : ");  Serial.println(ENCODER_Read(LEFT));
+      Serial.print("Erreur du gauche-droite"); Serial.println(ENCODER_Read(RIGHT) - ENCODER_Read(LEFT));
       ENCODER_ReadReset(RIGHT);
       ENCODER_ReadReset(LEFT);
-    }
-  delay(100);
-*/
+    } while (!AX_IsBumper(3));
+
+    arret();
+
+    delay(100);
+  }
+  else if(AX_IsBumper(1)){
+    ENCODER_ReadReset(RIGHT);
+    ENCODER_ReadReset(LEFT);
+    MOTOR_SetSpeed(RIGHT, vitesse);
+    MOTOR_SetSpeed(LEFT,  vitesse);
+    delay(3000);
+    arret();
+    Serial.print("Right : "); Serial.println(ENCODER_Read(RIGHT));
+    Serial.print("Left : ");  Serial.println(ENCODER_Read(LEFT));
+  }
+  else if(AX_IsBumper(2)){
+    calibrate(3);
+  }
+
 }
