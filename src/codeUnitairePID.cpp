@@ -4,6 +4,8 @@
 #define FULL_TURN_PULSE 3200
 #define QUARTER_ROTATION_PULSE 2133 //3200 * 2 / 3
 
+#define BACK_BUTTON 3
+
 #define DEBUG false
 
 float vitesse = 0.2;
@@ -26,13 +28,19 @@ void avance(){
 
 
 void tourne(char dir){
+
   bool leftMotorDone = false;
   bool rightMotorDone = false;
-  Serial.print("Enter tourne Gauche");
+
+  if (DEBUG)
+    Serial.print("Enter tourne Gauche");
+
   arret();
   delay(100);
+
   ENCODER_ReadReset(RIGHT);
   ENCODER_ReadReset(LEFT);
+
   if (dir == 'L'){
     MOTOR_SetSpeed(RIGHT,vitesse);
     MOTOR_SetSpeed(LEFT, ampliSub*-vitesse);
@@ -44,8 +52,13 @@ void tourne(char dir){
 
   while(!rightMotorDone && !leftMotorDone)
   {
-    //Serial.print("Right : "); Serial.println(ENCODER_Read(RIGHT));
-    //Serial.print("Left : ");  Serial.println(ENCODER_Read(LEFT));
+    if (DEBUG){
+      Serial.print("Right : "); Serial.println(ENCODER_Read(RIGHT));
+      Serial.print("Left : ");  Serial.println(ENCODER_Read(LEFT));
+    }
+
+    //Si l'encoder detecte que la roue a fait le nb de pulse necessaire pour un demi tour, il arrete
+    //Cette boucle se termine seulement si les deux encoders on fait le nombre necessaire de pulse
     if (abs(ENCODER_Read(RIGHT)) >= QUARTER_ROTATION_PULSE)
     {
       MOTOR_SetSpeed(RIGHT, 0);
@@ -57,27 +70,37 @@ void tourne(char dir){
       leftMotorDone = true;
     }
   }
+  
   arret();
   delay(100);
 };
 
 void calibrate(int timeToTestInSec){
 
-  Serial.print("Calibrating for "); Serial.print(timeToTestInSec); Serial.println(" seconds");
+  if (DEBUG)
+    Serial.print("Calibrating for "); Serial.print(timeToTestInSec); Serial.println(" seconds");
 
   ENCODER_ReadReset(RIGHT);
   ENCODER_ReadReset(LEFT);
 
   MOTOR_SetSpeed(RIGHT, vitesse);
   MOTOR_SetSpeed(LEFT, vitesse);
+
   delay(timeToTestInSec * 1000);
 
-  Serial.print("Right : "); Serial.println(ENCODER_Read(RIGHT));
-  Serial.print("Left : ");  Serial.println(ENCODER_Read(LEFT));
+  if (DEBUG){
+    Serial.print("Right : "); Serial.println(ENCODER_Read(RIGHT));
+    Serial.print("Left : ");  Serial.println(ENCODER_Read(LEFT));
+  }
+
+  //Divise le nb de pulse de l'encoder Droite par le nb de pulse de l'encoder Gauche pour trouver le ratio qu'il appliquer au moteur gauche
   ampliSub = (float)ENCODER_Read(RIGHT) / (float)ENCODER_Read(LEFT);
-  Serial.print("Ampli (RIGHT/LEFT): ");
-  Serial.println(String(ampliSub, 6));
-  Serial.println();  
+
+  if (DEBUG){
+    Serial.print("Ampli (RIGHT/LEFT): ");
+    Serial.println(String(ampliSub, 6));
+    Serial.println();  
+  }
   arret();
   delay(100);
 }
@@ -93,20 +116,25 @@ void beep(int count){
 }
 
 void setup(){
-
+  //Init de la librairie Robus
   BoardInit();
   beep(3);
 
+  //Calibration du robot sans amplification au moteur de gauche pour avoir une valeur aproximative
+  //Le code dans le loop peut ensuite faire de petit changement sur cette amplification
   calibrate(5);
+
   delay(1000);
   beep(2);
 }
 
 void loop() {
 
-  if(AX_IsBumper(3))
+  //Il faut appuyer sur le bouton et le relacher pour faire avancer le robot
+  //Pour l'arreter, il faut maintenir le bouton jusqu'à qu'il arrete
+  if(AX_IsBumper(BACK_BUTTON))
   {
-    while (AX_IsBumper(3))
+    while (AX_IsBumper(BACK_BUTTON))
       delay(1);
     beep(2);
 
@@ -117,6 +145,7 @@ void loop() {
     do
     {
       delay(100);
+      //Print des encoders Droite et Gauche AVANT le ratio applique au moteur de gauche
       if (DEBUG){
         Serial.print("Right : "); Serial.println(ENCODER_Read(RIGHT));
         Serial.print("Left : ");  Serial.println(ENCODER_Read(LEFT));
@@ -126,16 +155,25 @@ void loop() {
         Serial.print("AmpliSub avant : "); Serial.println(String(ampliSub, 6));
       }
 
+      //Divise le nb de pulse de l'encoder Droite par le nb de pulse de l'encoder Gauche pour trouver le ratio qu'il appliquer au moteur gauche
+      //La valeur des encoders est puissance pour que le robot subit une surcorrection si la difference entre les encoders est tres haute ou tres basse
+      //Ce quotient est ensuite multiplié par le ratio d'avant
       ampliSub *= (float)(pow(ENCODER_Read(RIGHT), 2)) / (float)(pow(ENCODER_Read(LEFT), 2));
+
+      //Print des encoders Droite et Gauche APRES le ratio applique au moteur de gauche
       if (DEBUG){
         Serial.print("AmpliSub apres : "); Serial.println(String(ampliSub, 6));
         Serial.print("Vitesse gauche apres : "); Serial.println(String(vitesse*ampliSub, 6));
         Serial.println();
       }
+      //Reset les encoders pour la prochaine lecture
       ENCODER_ReadReset(RIGHT);
       ENCODER_ReadReset(LEFT);
+
+      //Applique le nouveau ampliSub aux moteurs
       avance();
-    } while (!AX_IsBumper(3));
+
+    } while (!AX_IsBumper(BACK_BUTTON));
 
     arret();
     delay(500);
@@ -144,8 +182,8 @@ void loop() {
   }
   else if (AX_IsBumper(2))
   {
-    tourne('R');
-    tourne('L');
+    tourne('R'); //Right
+    tourne('L'); //Left
   }
   
 }
