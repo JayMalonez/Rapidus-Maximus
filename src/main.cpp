@@ -53,25 +53,10 @@ void initParcours() {
   parcours[8][1][3] = 1;
 }
 
-void printParcours() {
-  for (int i = 0; i < 10; i++) {
-    Serial.print("Ligne "); Serial.println(i);
-    for (int j = 0; j < 3; j++) {
-      Serial.print("  Case("); Serial.print(i);
-      Serial.print(","); Serial.print(j);
-      Serial.print(") -> [");
-
-      for (int d = 0; d < 4; d++) {
-        Serial.print(parcours[i][j][d]);
-        if (d < 3) Serial.print(",");
-      }
-      Serial.println("]"); // fin des directions
-    }
-  }
-}
-
 #define FULL_TURN_PULSE 3200
-#define DISTANCE 1000
+#define QUARTER_ROTATION_PULSE 2133 //3200 * 2 / 3
+
+#define DEBUG false
 
 bool bumperArr;
 int vertpin = 41;
@@ -80,14 +65,11 @@ bool vert = false;
 bool rouge = false;
 int etat = 0; // = 0 arrêt 1 = avance 2 = recule 3 = TourneDroit 4 = TourneGauche
 int etatPast = 0;
-float vitesse = 0.30;
+float vitesse = 0.2; //0,30
 
 int pulseNbMain = 0;
 int pulseNbSub = 0;
 float ampliSub = 1;
-
-float slowAccelRight = 0;
-float slowAccelLeft = 0;
 
 void beep(int count){
   for(int i=0;i<count;i++){
@@ -106,95 +88,86 @@ void arret(){
 
 void avance(){
   Serial.println("Avance");
-  MOTOR_SetSpeed(RIGHT,vitesse);
-  MOTOR_SetSpeed(LEFT, ampliSub*vitesse);
+  MOTOR_SetSpeed(RIGHT, constrain(vitesse, 0.1, 0.5));
+  MOTOR_SetSpeed(LEFT, constrain(ampliSub*vitesse, 0.1, 0.5));
 };
-
 
 void avance50(){
   ENCODER_Reset(RIGHT);
-  while (ENCODER_Read(RIGHT) < 6560){
+  ENCODER_Reset(LEFT);
+  while (ENCODER_Read(RIGHT) < 3000){
     avance();
   }
   delay(1000);
 };
 
-void avanceV2(int nbPulse){
+void tourne(char dir){
+  bool leftMotorDone = false;
+  bool rightMotorDone = false;
+  Serial.print("Enter tourne Gauche");
+  arret();
+  delay(100);
   ENCODER_ReadReset(RIGHT);
   ENCODER_ReadReset(LEFT);
-  do {
-    slowAccelRight = ((float)(nbPulse/2 - abs(ENCODER_Read(RIGHT) - nbPulse/2)) / (float)(nbPulse)) + 0.1;
-    slowAccelLeft =  ((float)(nbPulse/2 - abs(ENCODER_Read(LEFT)  - nbPulse/2)) / (float)(nbPulse)) + 0.1;
-    MOTOR_SetSpeed(RIGHT, slowAccelRight);
-    MOTOR_SetSpeed(LEFT,  slowAccelLeft );
-    Serial.println(slowAccelRight);
+  if (dir == 'L'){
+    Serial.println("Tourne gauche 90");
+    MOTOR_SetSpeed(RIGHT,vitesse);
+    MOTOR_SetSpeed(LEFT, ampliSub*-vitesse);
   }
-  while(abs(ENCODER_Read(RIGHT)) < nbPulse);
-}
+  else if (dir == 'R'){
+    Serial.println("Tourne droite 90");
+    MOTOR_SetSpeed(RIGHT,-vitesse);
+    MOTOR_SetSpeed(LEFT, ampliSub*vitesse);
+  }
 
-void recule(){
-  MOTOR_SetSpeed(RIGHT, -vitesse);
-  MOTOR_SetSpeed(LEFT, ampliSub*-vitesse);
-};
-
-
-void tourneDroit(){
-  Serial.println("Tourne droite 90");
-  MOTOR_SetSpeed(RIGHT, 0.5*vitesse);
-  MOTOR_SetSpeed(LEFT, -0.5*vitesse);
+  while(!rightMotorDone && !leftMotorDone)
+  {
+    //Serial.print("Right : "); Serial.println(ENCODER_Read(RIGHT));
+    //Serial.print("Left : ");  Serial.println(ENCODER_Read(LEFT));
+    if (abs(ENCODER_Read(RIGHT)) >= QUARTER_ROTATION_PULSE)
+    {
+      MOTOR_SetSpeed(RIGHT, 0);
+      rightMotorDone = true;
+    }
+    if (abs(ENCODER_Read(LEFT)) >= QUARTER_ROTATION_PULSE)
+    {
+      MOTOR_SetSpeed(LEFT, 0);
+      leftMotorDone = true;
+    }
+  }
   arret();
-};
-
-void tourneGauche(){
-  Serial.println("Tourne gauche 90");
-  MOTOR_SetSpeed(RIGHT, -0.5*vitesse);
-  MOTOR_SetSpeed(LEFT, 0.5*vitesse);
   delay(100);
-  arret();
 };
 
-void tourneGauche90(){
-  ENCODER_Reset(RIGHT);
-  while (ENCODER_Read(RIGHT) < 2000){
-    tourneDroit();
-  }
+void calibrate(int timeToTestInSec){
 
-};
-
-void tourneDroit90(){
-  ENCODER_Reset(LEFT);
-  while (ENCODER_Read(LEFT) < 2000){
-    tourneGauche();
-  }
-};
-
-void calibrate(int nbOfMeasure){
+  Serial.print("Calibrating for "); Serial.print(timeToTestInSec); Serial.println(" seconds");
 
   ENCODER_ReadReset(RIGHT);
   ENCODER_ReadReset(LEFT);
-  do {
-    avance();
-  }
-  while(ENCODER_Read(RIGHT) < FULL_TURN_PULSE*nbOfMeasure);
 
-  pulseNbSub = ENCODER_Read(LEFT);
+  MOTOR_SetSpeed(RIGHT, vitesse);
+  MOTOR_SetSpeed(LEFT, vitesse);
+  delay(timeToTestInSec * 1000);
 
-  ampliSub = ((float)FULL_TURN_PULSE * nbOfMeasure) / (float)pulseNbSub;
-  Serial.print("Ampli : ");
-  Serial.println(ampliSub);
+  Serial.print("Right : "); Serial.println(ENCODER_Read(RIGHT));
+  Serial.print("Left : ");  Serial.println(ENCODER_Read(LEFT));
+  ampliSub = (float)ENCODER_Read(RIGHT) / (float)ENCODER_Read(LEFT);
+  Serial.print("Ampli (RIGHT/LEFT): ");
+  Serial.println(String(ampliSub, 6));
+  Serial.println();  
   arret();
   delay(100);
-  beep(2);
 }
 
 void setup() {
   BoardInit();
   initParcours();
-  //printParcours();
+  beep(3);
 
-  pinMode(vertpin, INPUT);
-  pinMode(rougepin, INPUT);
-  delay(100);
+  calibrate(5);
+  delay(1000);
+  beep(2);
 
   //case de départ
   currentTile[0] = 9;
@@ -202,7 +175,7 @@ void setup() {
 }
 
 void loop() {
-  if (currentTile[0] == -1) {
+  if (currentTile[0] == 8) {
     Serial.println("Arrêt de l'algorithme");
     Serial.print(currentTile[0]);
     Serial.print(", ");
@@ -212,7 +185,7 @@ void loop() {
   }
 
   //regarde si on peut Avancer
-  if (parcours[currentTile[0]][currentTile[1]][0] == 0 && digitalRead(vertpin) == 1 && digitalRead(rougepin) == 1) {
+  if (parcours[currentTile[0]][currentTile[1]][0] == 0 /*&& digitalRead(vertpin) == 1 && digitalRead(rougepin) == 1*/) {
     avance50();
     currentTile[0]--;
 
@@ -222,8 +195,8 @@ void loop() {
   //sinon vérifie à droite
   } else if (parcours[currentTile[0]][currentTile[1]][1] == 0)
   {
-    tourneDroit90();
-    if (digitalRead(vertpin) == 0 && digitalRead(rougepin) == 0)
+    tourne('R');
+    /*if (digitalRead(vertpin) == 0 && digitalRead(rougepin) == 0)
     {
      tourneGauche90(); //90
      tourneGauche90(); //90
@@ -238,18 +211,20 @@ void loop() {
       Serial.print(", ");
       Serial.print(currentTile[1]);
       tourneGauche();
-    }
+    }*/
   //sinon vérifie à gauche
   } else if (parcours[currentTile[0]][currentTile[1]][3] == 0)
   {
-    tourneGauche90();
-    avance50();
+    tourne('L');
+    //avance50();
     currentTile[1]--;
 
     Serial.print(currentTile[0]);
     Serial.print(", ");
     Serial.print(currentTile[1]);
-    tourneDroit90();
+    //tourneDroit90();
   }
   delay(400);
+  arret();
+  delay(500);
 }
