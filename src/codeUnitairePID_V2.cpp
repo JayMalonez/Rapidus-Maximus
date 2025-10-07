@@ -1,3 +1,6 @@
+//
+//La distance par rapport au temps est égale à 7.36 cm/1000 pulses 50 cm / x pulses 
+
 
 #include <LibRobus.h>
 
@@ -33,7 +36,8 @@ void avancePID(int intervalEnMS){
   ENCODER_ReadReset(LEFT);
 
   //Applique le nouveau ampliSub aux moteurs
-  avance(); 
+  MOTOR_SetSpeed(RIGHT, constrain(vitesse, 0.1, 0.5));
+  MOTOR_SetSpeed(LEFT, constrain(ampliSub*vitesse, 0.1, 0.5));
 
   delay(intervalEnMS);
   //Print des encoders Droite et Gauche AVANT le ratio applique au moteur de gauche
