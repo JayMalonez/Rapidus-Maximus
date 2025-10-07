@@ -9,7 +9,7 @@ int parcours[10][3][4];
 int currentTile[2];
 
 //initialise les bordures dans le parcours
-void initParcours() {
+void initParcours(int run) {
   // tableau vide
   for (int i = 0; i < 10; i++) {
     for (int j = 0; j < 3; j++) {
@@ -40,18 +40,32 @@ void initParcours() {
     parcours[i][0][3] = 1;
   }
 
-  //bordure du milieu lignes : 0,2,4,6,8
-  for (int i = 0; i<= 8; i+=2) {
-    parcours[i][1][1] = 1;
-    parcours[i][1][3] = 1;
+  if (run == 1)
+  {
+    //bordure du milieu lignes : 0,2,4,6,8
+    for (int i = 0; i<= 8; i+=2) {
+      parcours[i][1][1] = 1;
+      parcours[i][1][3] = 1;
+    }
+  } else
+  {
+    //bordure du milieu lignes : 1,3,5,7,9
+    for (int i = 1; i<= 9; i+=2) {
+      parcours[i][1][1] = 1;
+      parcours[i][1][3] = 1;
+    }
   }
+  
+  
+  
   
 }
 
 #define FULL_TURN_PULSE 3200
 #define QUARTER_ROTATION_PULSE 2000 //2133 //3200 * 2 / 3
-#define DISTANCE 6650 //nb de pulse (avance)
+#define DISTANCE 6600 //nb de pulse (avance)
 
+bool depart = true;
 bool bumperArr;
 int vertpin = 41;
 int rougepin = 39;
@@ -70,9 +84,10 @@ float slowAccelLeft = 0;
 const int pin5KHZ = A5;
 const int pinAmbiant = A4;
 
-const int seuilAsbolu = 0;
-const int seuilRelatif = 0;
+const float seuilAsbolu = 3.5;
+const float seuilRelatif = 1.5;
 bool firstRun = true;
+bool siffletDetecte = false;
 
 void beep(int count){
   for(int i=0;i<count;i++){
@@ -182,18 +197,18 @@ void calibrate(int timeToTestInSec){
 }
 
 float lecture5KHZ() {
-  return (analogRead(pin5KHZ)/1023)*5;
+  return (analogRead(pin5KHZ)/1023.0)*5.0;
 }
 
 float lectureAmbiant() {
-  return (analogRead(pinAmbiant)/1023)*5;
+  return (analogRead(pinAmbiant)/1023.0)*5.0;
 }
 
 bool detecteSifflet() {
   float valeur5KHZ = lecture5KHZ();
   float valeurAmbiant = lectureAmbiant();
 
-  if (valeur5KHZ > seuilAsbolu && (valeur5KHZ - valeurAmbiant) > seuilRelatif) {
+  if (valeur5KHZ > seuilAsbolu && ((valeur5KHZ - valeurAmbiant) > seuilRelatif)) {
         return true;
   } 
 
@@ -204,7 +219,7 @@ bool detecteSifflet() {
 
 void setup() {
   BoardInit();
-  initParcours();
+  initParcours(1);
   beep(3);
 
   pinMode(pin5KHZ, INPUT);
@@ -225,29 +240,43 @@ void loop() {
   
   
   if (firstRun){
+    beep(1);
     
-    while(detecteSifflet() == false){
-      Serial.println(lecture5KHZ());
-      Serial.println(lectureAmbiant());
+    while(siffletDetecte == false){
+      siffletDetecte = detecteSifflet();
+      delay(500);
 
     }
 
     firstRun = false;
+    beep(2);
   }
 
-  if (currentTile[0] == -1) {
-    Serial.println("Arrêt de l'algorithme");
+  if (currentTile[0] == 0) {
+    Serial.println("Run retour");
+    initParcours(2);
+    depart = true;
+    currentTile[0] = 9;
+    tourne('L');
+    delay(400);
+    tourne('L');
+    delay(400);
     Serial.print(currentTile[0]);
     Serial.print(", ");
     Serial.print(currentTile[1]);
+  }
+
+  if (currentTile[0] == 9 && !depart) {
+    Serial.println("Arret");
     arret();
-    return; 
+    return;
   }
 
   //regarde si on peut Avancer si pas de mur et pas de limite
   if (parcours[currentTile[0]][currentTile[1]][0] == 0 && (digitalRead(vertpin) == 1 || digitalRead(rougepin) == 1)) {
     avance(DISTANCE);
     currentTile[0]--;
+    depart = false;
 
     Serial.print(currentTile[0]);
     Serial.print(", ");
