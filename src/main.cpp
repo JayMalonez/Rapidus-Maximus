@@ -41,16 +41,11 @@ void initParcours() {
   }
 
   //bordure du milieu lignes : 0,2,4,6,8
-  parcours[0][1][1] = 1;
-  parcours[0][1][3] = 1;
-  parcours[2][1][1] = 1;
-  parcours[2][1][3] = 1;
-  parcours[4][1][1] = 1;
-  parcours[4][1][3] = 1;
-  parcours[6][1][1] = 1;
-  parcours[6][1][3] = 1;
-  parcours[8][1][1] = 1;
-  parcours[8][1][3] = 1;
+  for (int i = 0; i<= 8; i+=2) {
+    parcours[i][1][1] = 1;
+    parcours[i][1][3] = 1;
+  }
+  
 }
 
 #define FULL_TURN_PULSE 3200
@@ -72,8 +67,8 @@ float ampliSub = 1;
 float slowAccelRight = 0;
 float slowAccelLeft = 0;
 
-const int pin5KHZ = 5;
-const int pinAmbiant = 4;
+const int pin5KHZ = A5;
+const int pinAmbiant = A4;
 
 const int seuilAsbolu = 0;
 const int seuilRelatif = 0;
@@ -94,7 +89,7 @@ void arret(){
   MOTOR_SetSpeed(LEFT, 0);
 };
 
-/*void avance(int nbPulse){
+void avance(int nbPulse){
   ENCODER_ReadReset(RIGHT);
   ENCODER_ReadReset(LEFT);
   do {
@@ -105,9 +100,9 @@ void arret(){
     //Serial.println(slowAccelRight);
   }
   while(abs(ENCODER_Read(RIGHT)) < nbPulse);
-};*/
+};
 
-void avance(int nbPulse){
+/*void avance(int nbPulse){
   //Reset les encoders pour la prochaine lecture
   ENCODER_ReadReset(RIGHT);
   ENCODER_ReadReset(LEFT);
@@ -127,7 +122,7 @@ void avance(int nbPulse){
   //La valeur des encoders est puissance pour que le robot subit une surcorrection si la difference entre les encoders est tres haute ou tres basse
   //Ce quotient est ensuite multiplié par le ratio d'avant
   ampliSub *= (float)(pow(ENCODER_Read(RIGHT), 2)) / (float)(pow(ENCODER_Read(LEFT), 2));
-};
+};*/
 
 void tourne(char dir){
   bool leftMotorDone = false;
@@ -229,7 +224,7 @@ void setup() {
 void loop() {
   
   
-  /*if (firstRun){
+  if (firstRun){
     
     while(detecteSifflet() == false){
       Serial.println(lecture5KHZ());
@@ -238,7 +233,7 @@ void loop() {
     }
 
     firstRun = false;
-  }*/
+  }
 
   if (currentTile[0] == -1) {
     Serial.println("Arrêt de l'algorithme");
