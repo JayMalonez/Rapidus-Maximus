@@ -55,9 +55,7 @@ void initParcours() {
 
 #define FULL_TURN_PULSE 3200
 #define QUARTER_ROTATION_PULSE 2000 //2133 //3200 * 2 / 3
-
-
-#define DEBUG false
+#define DISTANCE 6650 //nb de pulse (avance)
 
 bool bumperArr;
 int vertpin = 41;
@@ -66,7 +64,7 @@ bool vert = false;
 bool rouge = false;
 int etat = 0; // = 0 arrêt 1 = avance 2 = recule 3 = TourneDroit 4 = TourneGauche
 int etatPast = 0;
-float vitesse = 0.3; //0,30
+float vitesse = 0.35; //0,30
 
 int pulseNbMain = 0;
 int pulseNbSub = 0;
@@ -74,11 +72,11 @@ float ampliSub = 1;
 float slowAccelRight = 0;
 float slowAccelLeft = 0;
 
-const int pin5KHZ = 10;
-const int pinAmbiant = 11;
+const int pin5KHZ = 5;
+const int pinAmbiant = 4;
 
-const int seuilAsbolu = 1;
-const int seuilRelatif = 1;
+const int seuilAsbolu = 0;
+const int seuilRelatif = 0;
 bool firstRun = true;
 
 void beep(int count){
@@ -96,7 +94,7 @@ void arret(){
   MOTOR_SetSpeed(LEFT, 0);
 };
 
-void avance(int nbPulse){
+/*void avance(int nbPulse){
   ENCODER_ReadReset(RIGHT);
   ENCODER_ReadReset(LEFT);
   do {
@@ -107,27 +105,29 @@ void avance(int nbPulse){
     //Serial.println(slowAccelRight);
   }
   while(abs(ENCODER_Read(RIGHT)) < nbPulse);
-};
-
-/*void avance50(){
-  ENCODER_Reset(RIGHT);
-  ENCODER_Reset(LEFT);
-;
-
-  while (true){
-    long droite = ENCODER_Read(RIGHT);
-    long gauche = ENCODER_Read(LEFT);
-    long moyenne = (droite + gauche) / 2;
-
-    if (moyenne >= 3800)
-    {
-      break;
-    }
-
-    avance();
-  }
-  delay(1000);
 };*/
+
+void avance(int nbPulse){
+  //Reset les encoders pour la prochaine lecture
+  ENCODER_ReadReset(RIGHT);
+  ENCODER_ReadReset(LEFT);
+
+  //Applique le nouveau ampliSub aux moteurs
+  MOTOR_SetSpeed(RIGHT, constrain(vitesse, 0.1, 0.5));
+  MOTOR_SetSpeed(LEFT, constrain(ampliSub*vitesse, 0.1, 0.5));
+
+  while (abs(ENCODER_Read(RIGHT)) < nbPulse)
+  {
+    //rien
+  }
+  
+  //Print des encoders Droite et Gauche AVANT le ratio applique au moteur de gauche
+
+  //Divise le nb de pulse de l'encoder Droite par le nb de pulse de l'encoder Gauche pour trouver le ratio qu'il appliquer au moteur gauche
+  //La valeur des encoders est puissance pour que le robot subit une surcorrection si la difference entre les encoders est tres haute ou tres basse
+  //Ce quotient est ensuite multiplié par le ratio d'avant
+  ampliSub *= (float)(pow(ENCODER_Read(RIGHT), 2)) / (float)(pow(ENCODER_Read(LEFT), 2));
+};
 
 void tourne(char dir){
   bool leftMotorDone = false;
@@ -150,8 +150,6 @@ void tourne(char dir){
 
   while(!rightMotorDone && !leftMotorDone)
   {
-    //Serial.print("Right : "); Serial.println(ENCODER_Read(RIGHT));
-    //Serial.print("Left : ");  Serial.println(ENCODER_Read(LEFT));
     if (abs(ENCODER_Read(RIGHT)) >= QUARTER_ROTATION_PULSE)
     {
       MOTOR_SetSpeed(RIGHT, 0);
@@ -218,7 +216,7 @@ void setup() {
   pinMode(pinAmbiant, INPUT);
   firstRun = true;
 
-  //calibrate(5);
+  calibrate(5);
   delay(1000);
   beep(2);
   delay(5000);
@@ -226,20 +224,21 @@ void setup() {
   //case de départ
   currentTile[0] = 9;
   currentTile[1] = 1;
-
-  
 }
 
 void loop() {
   
-  if (firstRun){
+  
+  /*if (firstRun){
     
     while(detecteSifflet() == false){
-      
+      Serial.println(lecture5KHZ());
+      Serial.println(lectureAmbiant());
+
     }
 
     firstRun = false;
-  }
+  }*/
 
   if (currentTile[0] == -1) {
     Serial.println("Arrêt de l'algorithme");
@@ -250,52 +249,57 @@ void loop() {
     return; 
   }
 
-  //regarde si on peut Avancer
+  //regarde si on peut Avancer si pas de mur et pas de limite
   if (parcours[currentTile[0]][currentTile[1]][0] == 0 && (digitalRead(vertpin) == 1 || digitalRead(rougepin) == 1)) {
-    avance(6250);
+    avance(DISTANCE);
     currentTile[0]--;
 
     Serial.print(currentTile[0]);
     Serial.print(", ");
     Serial.print(currentTile[1]);
-  //sinon vérifie à droite
+  //sinon vérifie à droite si pas de limite
   } else if (parcours[currentTile[0]][currentTile[1]][1] == 0)
   {
     tourne('R');
     delay(1000);
     arret();
 
+    //si un mur u-turn
     if (digitalRead(vertpin) == 0 || digitalRead(rougepin) == 0)
     {
+      //u-turn
       tourne('L');
       delay(400);
       tourne('L');
       delay(400);
-      avance(6250);
+      avance(DISTANCE);
       delay(400);
       tourne('R'); //se replace dans la bonne direction
       delay(1000);
     } else {
-      avance(6250);
+      //virage à droite normal
+      avance(DISTANCE);
       delay(400);
       tourne('L');
       delay(1000);
+      currentTile[1]++;
+      Serial.print(currentTile[0]);
+      Serial.print(", ");
+      Serial.print(currentTile[1]);
 
-      if (currentTile[1] == 0 && (digitalRead(vertpin) == 0 || digitalRead(rougepin) == 0))
+      //si un mur dans la colonne de droite
+      if (currentTile[1] == 2 && (digitalRead(vertpin) == 0 || digitalRead(rougepin) == 0))
       {
-        Serial.print("continue");
+        //va à gauche si un mur au milieu et 
         tourne('L');
         delay(400);
-        avance(6250);
+        avance(DISTANCE);
         delay(400);
-        avance(6250);
+        avance(DISTANCE);
         tourne('R');
         delay(400);
         currentTile[1]--;
-      } else
-      {
-        tourne('L');
-        currentTile[1]++;
+        currentTile[1]--;
       }
 
       Serial.print(currentTile[0]);
@@ -306,7 +310,7 @@ void loop() {
   } else if (parcours[currentTile[0]][currentTile[1]][3] == 0)
   {
     tourne('L');
-    avance(6250);
+    avance(DISTANCE);
     currentTile[1]--;
 
     Serial.print(currentTile[0]);
