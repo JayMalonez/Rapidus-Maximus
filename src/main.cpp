@@ -257,6 +257,14 @@ void loop() {
     initParcours(2);
     depart = true;
     currentTile[0] = 9;
+    if (currentTile[1] == 2)
+    {
+      currentTile[1] = 0;
+    } else if (currentTile[1] == 0)
+    {
+      currentTile[1] = 2;
+    }
+    
     tourne('L');
     delay(400);
     tourne('L');
