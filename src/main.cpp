@@ -252,11 +252,11 @@ void loop() {
     beep(2);
   }
 
-  if (currentTile[0] == 0 && depart) {
+  if (currentTile[0] == 0) {
     Serial.println("Run retour");
     initParcours(2);
+    depart = true;
     currentTile[0] = 9;
-    depart = false;
     if (currentTile[1] == 2)
     {
       currentTile[1] = 0;
@@ -272,8 +272,9 @@ void loop() {
     Serial.print(currentTile[0]);
     Serial.print(", ");
     Serial.print(currentTile[1]);
-  } else
-  {
+  }
+
+  if (currentTile[0] == 9 && !depart) {
     Serial.println("Arret");
     arret();
     return;
@@ -283,6 +284,7 @@ void loop() {
   if (parcours[currentTile[0]][currentTile[1]][0] == 0 && (digitalRead(vertpin) == 1 || digitalRead(rougepin) == 1)) {
     avance(DISTANCE);
     currentTile[0]--;
+    depart = false;
 
     Serial.print(currentTile[0]);
     Serial.print(", ");
@@ -291,7 +293,7 @@ void loop() {
   } else if (parcours[currentTile[0]][currentTile[1]][1] == 0)
   {
     tourne('R');
-    delay(500);
+    delay(1000);
     arret();
 
     //si un mur u-turn
@@ -305,13 +307,13 @@ void loop() {
       avance(DISTANCE);
       delay(400);
       tourne('R'); //se replace dans la bonne direction
-      delay(500);
+      delay(1000);
     } else {
       //virage à droite normal
       avance(DISTANCE);
       delay(400);
       tourne('L');
-      delay(400);
+      delay(1000);
       currentTile[1]++;
       Serial.print(currentTile[0]);
       Serial.print(", ");
