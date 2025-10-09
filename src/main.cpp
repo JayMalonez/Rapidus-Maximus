@@ -1,5 +1,7 @@
 #include <LibRobus.h>
 
+#define CONST_DELAY 100
+
 /* 
 matrice de 3 lignes par 10 colonnes contenant des tableaux de 4 représentant une case 
 [haut, droite, bas, gauche]
@@ -47,25 +49,30 @@ void initParcours(int run) {
       parcours[i][1][1] = 1;
       parcours[i][1][3] = 1;
     }
-  } else
-  {
-    //bordure du milieu lignes : 1,3,5,7,9
-    for (int i = 1; i<= 9; i+=2) {
-      parcours[i][1][1] = 1;
-      parcours[i][1][3] = 1;
-    }
   }
-  
-  
-  
-  
+  parcours[0][1][2] = 1;
+  parcours[1][1][0] = 1;
+
+  parcours[2][1][0] = 1;
+  parcours[2][1][2] = 1;
+  parcours[3][1][0] = 1;
+
+  parcours[6][1][0] = 1;
+  parcours[6][1][2] = 1;
+  parcours[7][1][0] = 1;
+
+
+  parcours[8][1][0] = 1;
+  parcours[8][1][2] = 1;
+  parcours[9][1][0] = 1;
 }
 
 #define FULL_TURN_PULSE 3200
 #define QUARTER_ROTATION_PULSE 2000 //2133 //3200 * 2 / 3
 #define DISTANCE 6600 //nb de pulse (avance)
 
-bool depart = true;
+long parcoursDistance = DISTANCE*12;
+bool murDroite = false;
 bool bumperArr;
 int vertpin = 41;
 int rougepin = 39;
@@ -81,9 +88,9 @@ float ampliSub = 1;
 float slowAccelRight = 0;
 float slowAccelLeft = 0;
 
+
 const int pin5KHZ = A5;
 const int pinAmbiant = A4;
-
 const float seuilAsbolu = 3.5;
 const float seuilRelatif = 1.5;
 bool firstRun = true;
@@ -92,9 +99,9 @@ bool siffletDetecte = false;
 void beep(int count){
   for(int i=0;i<count;i++){
     AX_BuzzerON();
-    delay(100);
+    delay(CONST_DELAY);
     AX_BuzzerOFF();
-    delay(100);  
+    delay(CONST_DELAY);  
   }
   delay(400);
 }
@@ -117,7 +124,7 @@ void avance(int nbPulse){
   while(abs(ENCODER_Read(RIGHT)) < nbPulse);
 };
 
-/*void avance(int nbPulse){
+void avanceParcours(int nbPulse){
   //Reset les encoders pour la prochaine lecture
   ENCODER_ReadReset(RIGHT);
   ENCODER_ReadReset(LEFT);
@@ -131,20 +138,15 @@ void avance(int nbPulse){
     //rien
   }
   
-  //Print des encoders Droite et Gauche AVANT le ratio applique au moteur de gauche
-
-  //Divise le nb de pulse de l'encoder Droite par le nb de pulse de l'encoder Gauche pour trouver le ratio qu'il appliquer au moteur gauche
-  //La valeur des encoders est puissance pour que le robot subit une surcorrection si la difference entre les encoders est tres haute ou tres basse
-  //Ce quotient est ensuite multiplié par le ratio d'avant
   ampliSub *= (float)(pow(ENCODER_Read(RIGHT), 2)) / (float)(pow(ENCODER_Read(LEFT), 2));
-};*/
+};
 
 void tourne(char dir){
   bool leftMotorDone = false;
   bool rightMotorDone = false;
   Serial.print("Enter tourne Gauche");
   arret();
-  delay(100);
+  delay(CONST_DELAY);
   ENCODER_ReadReset(RIGHT);
   ENCODER_ReadReset(LEFT);
   if (dir == 'L'){
@@ -172,7 +174,7 @@ void tourne(char dir){
     }
   }
   arret();
-  delay(100);
+  delay(CONST_DELAY);
 };
 
 void calibrate(int timeToTestInSec){
@@ -193,7 +195,7 @@ void calibrate(int timeToTestInSec){
   Serial.println(String(ampliSub, 6));
   Serial.println();  
   arret();
-  delay(100);
+  delay(CONST_DELAY);
 }
 
 float lecture5KHZ() {
@@ -252,48 +254,47 @@ void loop() {
     beep(2);
   }
 
-  if (currentTile[0] == 0) {
+  if (currentTile[0] == -1) {
     Serial.println("Run retour");
-    initParcours(2);
-    depart = true;
-    currentTile[0] = 9;
     if (currentTile[1] == 2)
     {
-      currentTile[1] = 0;
+      tourne('L');
+      delay(CONST_DELAY);
+      avance(DISTANCE);
+      delay(CONST_DELAY);
+      tourne('L');
+      delay(CONST_DELAY);
+      avanceParcours(parcoursDistance);
+      arret();
+      return;
     } else if (currentTile[1] == 0)
     {
-      currentTile[1] = 2;
+      tourne('R');
+      delay(CONST_DELAY);
+      avance(DISTANCE);
+      delay(CONST_DELAY);
+      tourne('R');
+      delay(CONST_DELAY);
+      avanceParcours(parcoursDistance);
+      arret();
+      return;
     }
-    
-    tourne('L');
-    delay(400);
-    tourne('L');
-    delay(400);
-    Serial.print(currentTile[0]);
-    Serial.print(", ");
-    Serial.print(currentTile[1]);
-  }
-
-  if (currentTile[0] == 9 && !depart) {
-    Serial.println("Arret");
-    arret();
-    return;
   }
 
   //regarde si on peut Avancer si pas de mur et pas de limite
   if (parcours[currentTile[0]][currentTile[1]][0] == 0 && (digitalRead(vertpin) == 1 || digitalRead(rougepin) == 1)) {
     avance(DISTANCE);
     currentTile[0]--;
-    depart = false;
+    murDroite = false;
 
     Serial.print(currentTile[0]);
     Serial.print(", ");
     Serial.print(currentTile[1]);
   //sinon vérifie à droite si pas de limite
-  } else if (parcours[currentTile[0]][currentTile[1]][1] == 0)
+  } else if (parcours[currentTile[0]][currentTile[1]][1] == 0  && !murDroite)
   {
     tourne('R');
-    delay(1000);
+    delay(CONST_DELAY);
     arret();
 
     //si un mur u-turn
@@ -301,19 +302,19 @@ void loop() {
     {
       //u-turn
       tourne('L');
-      delay(400);
+      delay(CONST_DELAY);
       tourne('L');
-      delay(400);
+      delay(CONST_DELAY);
       avance(DISTANCE);
-      delay(400);
+      delay(CONST_DELAY);
       tourne('R'); //se replace dans la bonne direction
-      delay(1000);
+      delay(CONST_DELAY);
     } else {
       //virage à droite normal
       avance(DISTANCE);
-      delay(400);
+      delay(CONST_DELAY);
       tourne('L');
-      delay(1000);
+      delay(CONST_DELAY);
       currentTile[1]++;
       Serial.print(currentTile[0]);
       Serial.print(", ");
@@ -324,12 +325,12 @@ void loop() {
       {
         //va à gauche si un mur au milieu et 
         tourne('L');
-        delay(400);
+        delay(CONST_DELAY);
         avance(DISTANCE);
-        delay(400);
+        delay(CONST_DELAY);
         avance(DISTANCE);
         tourne('R');
-        delay(400);
+        delay(CONST_DELAY);
         currentTile[1]--;
         currentTile[1]--;
       }
@@ -344,13 +345,14 @@ void loop() {
     tourne('L');
     avance(DISTANCE);
     currentTile[1]--;
+    murDroite = true;
 
     Serial.print(currentTile[0]);
     Serial.print(", ");
     Serial.print(currentTile[1]);
     tourne('R');
   }
-  delay(200);
+  delay(CONST_DELAY);
   arret();
-  delay(300);
+  delay(CONST_DELAY);
 }
