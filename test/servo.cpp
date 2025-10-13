@@ -9,7 +9,6 @@
 
 int oriServo = 0;
 
-
 void setup() {
   BoardInit();
 
